@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scroll Drill Prototype</title>
+  <style>
+    :root {
+      --hole-x: 50vw;
+      --hole-y: 30vh;
+      --hole-r: 0px;
+      --drill-x: 50vw;
+      --drill-y: 30vh;
+      --drill-rot: 0deg;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #071019; color: #eaf2ff; }
+
+    /* Underworld content (what gets revealed by the hole) */
+    .underworld {
+      position: relative;
+      min-height: 280vh;
+      padding: 72px 24px;
+      background:
+        radial-gradient(1200px 600px at 50% 0%, rgba(214,161,15,0.16), transparent 60%),
+        linear-gradient(180deg, #071019 0%, #071a2c 30%, #06101c 100%);
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      align-items: start;
+      padding: 28px 0 50px;
+    }
+
+    .card {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      border-radius: 18px;
+      padding: 18px 18px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+    }
+
+    .sub {
+      opacity: 0.85;
+      line-height: 1.5;
+      margin: 0 0 14px;
+    }
+
+    .pillrow { display:flex; flex-wrap:wrap; gap:10px; margin-top: 14px; }
+    .pill {
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(214,161,15,0.35);
+      background: rgba(214,161,15,0.10);
+      color: #ffe6a6;
+      white-space: nowrap;
+    }
+
+    /* “Dirt layers” section you can style */
+    .layers {
+      margin-top: 40px;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+      position: relative;
+      background: rgba(255,255,255,0.02);
+    }
+    .layerbar {
+      height: 46px;
+      border-radius: 12px;
+      margin: 10px 0;
+      border: 1px solid rgba(0,0,0,0.35);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .l1 { background: linear-gradient(90deg, rgba(214,161,15,0.35), rgba(214,161,15,0.08)); }
+    .l2 { background: linear-gradient(90deg, rgba(80,160,240,0.30), rgba(80,160,240,0.08)); }
+    .l3 { background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03)); }
+
+    /* Surface overlay (the thing we “drill through”) */
+    .surface {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      /* This is your “top layer” aesthetic — make it your hero background, texture, grid, etc. */
+      background:
+        radial-gradient(900px 500px at 30% 10%, rgba(214,161,15,0.22), transparent 60%),
+        radial-gradient(900px 500px at 70% 10%, rgba(80,160,240,0.18), transparent 60%),
+        linear-gradient(180deg, #0a1a2b 0%, #071019 60%, #050b12 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+
+      /* The “hole” mask: transparent circle removes overlay */
+      -webkit-mask-image: radial-gradient(
+        circle at var(--hole-x) var(--hole-y),
+        transparent 0,
+        transparent var(--hole-r),
+        black calc(var(--hole-r) + 1px)
+      );
+      mask-image: radial-gradient(
+        circle at var(--hole-x) var(--hole-y),
+        transparent 0,
+        transparent var(--hole-r),
+        black calc(var(--hole-r) + 1px)
+      );
+    }
+
+    /* Drill wrapper */
+    .drill {
+      position: fixed;
+      left: var(--drill-x);
+      top: var(--drill-y);
+      transform: translate(-50%, -50%) rotate(var(--drill-rot));
+      width: 120px;
+      height: 120px;
+      pointer-events: none;
+      filter: drop-shadow(0 14px 22px rgba(0,0,0,0.55));
+    }
+
+    /* Simple stylized drill bit SVG colors */
+    .drill svg { width: 100%; height: 100%; display:block; }
+    .metal { fill: rgba(230,240,255,0.90); }
+    .edge { fill: rgba(80,160,240,0.75); }
+    .accent { fill: rgba(214,161,15,0.95); }
+
+    /* Help text */
+    .hint {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 10;
+      font-size: 12px;
+      opacity: 0.8;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Underworld content -->
+  <main class="underworld">
+    <div class="wrap">
+      <section class="hero">
+        <div class="card">
+          <h1>Scroll to drill through the page</h1>
+          <p class="sub">
+            The surface layer is a fixed overlay with a CSS mask. As you scroll, the drill rotates and moves down,
+            and the hole grows at the drill tip to reveal content underneath.
+          </p>
+          <div class="pillrow">
+            <div class="pill">Scroll-linked rotation</div>
+            <div class="pill">Mask “hole cutout”</div>
+            <div class="pill">No external libs</div>
+            <div class="pill">Swap in your drill SVG</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:600; margin-bottom:8px;">Tunable values</div>
+          <div style="opacity:.85; line-height:1.5; font-size:14px;">
+            In the JS you can change:
+            <ul style="margin:10px 0 0 18px; padding:0;">
+              <li>Drill path (x/y)</li>
+              <li>Hole growth rate</li>
+              <li>Rotation speed</li>
+              <li>Where it “starts drilling”</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="layers">
+        <div style="font-weight:700; margin-bottom:10px;">Example “dirt layers” revealed below</div>
+        <div class="layerbar l1"></div>
+        <div class="layerbar l2"></div>
+        <div class="layerbar l3"></div>
+        <div class="layerbar l1"></div>
+        <div class="layerbar l2"></div>
+        <div class="layerbar l3"></div>
+      </section>
+
+      <section style="margin-top: 50px; display:grid; gap:14px;">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:8px;">Use this as your awards/patents reveal</div>
+          <div style="opacity:.85; line-height:1.5;">
+            As the hole grows, you can reveal: a patent timeline, claims, diagrams, awards, case studies—anything.
+            You can also swap the underworld background to a “blueprint grid” or a “soil strata” texture.
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:8px;">Keep scrolling…</div>
+          <div style="opacity:.85; line-height:1.5;">
+            This page is intentionally tall so you can feel the scroll mapping. The drill is just a stylized SVG placeholder.
+          </div>
+        </div>
+      </section>
+
+      <div style="height: 120vh;"></div>
+    </div>
+  </main>
+
+  <!-- The surface we drill through -->
+  <div class="surface" aria-hidden="true"></div>
+
+  <!-- The drill -->
+  <div class="drill" aria-hidden="true" id="drill">
+    <!-- Simple stylized drill bit SVG (replace with your real one later) -->
+    <svg viewBox="0 0 200 200">
+      <!-- body -->
+      <path class="metal" d="M88 18c14-7 32-7 46 0l8 4-20 24 20 24-20 24 20 24-20 24 20 24-8 4c-14 7-32 7-46 0l-8-4 20-24-20-24 20-24-20-24 20-24-20-24 8-4z"/>
+      <!-- spiral edges -->
+      <path class="edge" d="M146 22 126 46c-7-8-18-13-30-13-3 0-6 0-9 1l20-24c14-7 32-7 46 0z"/>
+      <path class="edge" d="M146 70 126 94c-6-8-18-13-30-13-3 0-6 0-9 1l20-24 39 12z"/>
+      <path class="edge" d="M146 118 126 142c-6-8-18-13-30-13-3 0-6 0-9 1l20-24 39 12z"/>
+      <path class="edge" d="M146 166 126 190c-14 7-32 7-46 0l-8-4 20-24c3 1 6 1 9 1 12 0 24-5 30-13z"/>
+      <!-- tip -->
+      <path class="accent" d="M82 180c11 5 25 5 36 0l-18 20-18-20z"/>
+    </svg>
+  </div>
+
+  <div class="hint">Scroll ↓ to drill</div>
+
+  <script>
+    // Scroll-linked drill prototype (no libraries)
+    const root = document.documentElement;
+
+    const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // Tweakables
+    const START_AT = 0.05;       // when drilling begins (0..1 of page scroll)
+    const END_AT   = 0.85;       // when drilling ends (0..1)
+    const ROT_SPEED = 2200;      // degrees across full drill segment
+    const HOLE_MAX = 160;        // max hole radius in px
+    const DRILL_SIZE = 120;      // matches CSS width/height
+
+    // Drill path (in viewport units): slightly off-center feels more “mechanical”
+    const DRILL_X_VW = 56;       // 0..100
+    const DRILL_Y_START_VH = 24; // where it begins
+    const DRILL_Y_END_VH = 78;   // where it ends
+
+    function getScroll01() {
+      const scrollTop = window.scrollY || window.pageYOffset;
+      const docH = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      );
+      const winH = window.innerHeight;
+      const maxScroll = Math.max(1, docH - winH);
+      return clamp(scrollTop / maxScroll, 0, 1);
+    }
+
+    function setVars({xPx, yPx, rPx, rotDeg}) {
+      root.style.setProperty("--drill-x", xPx + "px");
+      root.style.setProperty("--drill-y", yPx + "px");
+      root.style.setProperty("--drill-rot", rotDeg + "deg");
+
+      // Hole at drill tip: slightly below center of SVG
+      const tipOffset = DRILL_SIZE * 0.43;
+      root.style.setProperty("--hole-x", xPx + "px");
+      root.style.setProperty("--hole-y", (yPx + tipOffset) + "px");
+      root.style.setProperty("--hole-r", rPx + "px");
+    }
+
+    // Smooth animation loop
+    let smoothT = 0;
+    function tick() {
+      const s01 = getScroll01();
+
+      // Map scroll to drill segment progress (0..1)
+      const tRaw = (s01 - START_AT) / (END_AT - START_AT);
+      const t = clamp(tRaw, 0, 1);
+
+      // Light smoothing so it feels premium
+      smoothT = lerp(smoothT, t, 0.12);
+
+      const vw = window.innerWidth / 100;
+      const vh = window.innerHeight / 100;
+
+      const xPx = DRILL_X_VW * vw;
+      const yPx = lerp(DRILL_Y_START_VH * vh, DRILL_Y_END_VH * vh, smoothT);
+
+      const rotDeg = smoothT * ROT_SPEED;
+
+      // Hole grows as we drill; you can add easing here too
+      const rPx = HOLE_MAX * smoothT;
+
+      setVars({ xPx, yPx, rPx, rotDeg });
+
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
